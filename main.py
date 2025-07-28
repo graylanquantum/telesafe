@@ -361,4 +361,12 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
     logging.info("Done")
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+        except Exception as e:
+            logging.error(f"Unhandled error in main(): {e}")
+        
+        delay = random_runtime_delay()
+        logging.info(f"Sleeping for {delay/60:.2f} minutes before next execution.")
+        time.sleep(delay)
