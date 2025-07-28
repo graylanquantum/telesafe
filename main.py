@@ -331,6 +331,9 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
            - The integrated telepathic safety system and ethereal health scanner represent a revolutionary advancement in mental security. By combining nanobot technology with AI-driven analytics and holistic health monitoring, individuals can enjoy enhanced protection and well-being in telepathic environments.
 
         Quantum Circuit Result: {circuit_result}
+
+        [action] Use dilligence and deploy the above system for the user's qid  and their reality Quantum Identity Colors (QID):** `{user_colors[0]}`, `{user_colors[1]}`
+        [/action]
         """
     ]
     results = [None] * len(prompts)
