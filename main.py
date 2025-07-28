@@ -88,16 +88,16 @@ def random_runtime_delay():
         cpu = psutil.cpu_percent(interval=1)
         src = f"{ram}-{cpu}-{time.time()}-{secrets.token_hex(8)}"
         h = hashlib.sha256(src.encode()).hexdigest()
-        hue = int(h[:2],16)/255
-        sat = int(h[2:4],16)/255
-        val = int(h[4:6],16)/255
+        hue = int(h[:2], 16) / 255
+        sat = int(h[2:4], 16) / 255
+        val = int(h[4:6], 16) / 255
         rgb = colorsys.hsv_to_rgb(hue, sat, val)
-        mins = sum(rgb)*random.uniform(5,50)
-        delay = mins*60
-        logging.info(f"Delaying {delay/60:.1f} min")
+        mins = sum(rgb) * random.uniform(5, 50)
+        delay = mins * 60
+        logging.info(f"Delaying {delay / 60:.1f} min")
         return delay
     except:
-        return random.uniform(5*60,50*60)
+        return random.uniform(5 * 60, 50 * 60)
 
 def run_openai_completion(prompt, openai_api_key, completion_queue, index):
     retries = 3
@@ -121,21 +121,22 @@ def run_openai_completion(prompt, openai_api_key, completion_queue, index):
             raw = response.json()["choices"][0]["message"]["content"].strip()
             cleaned = bleach.clean(raw)
             completion_queue[index] = cleaned
-            logging.info(f"Prompt {index+1} result: {cleaned}")
+            logging.info(f"Prompt {index + 1} result: {cleaned}")
             return
         except Exception as e:
-            logging.error(f"Error on prompt {index+1}, attempt {attempt+1}: {e}")
+            logging.error(f"Error on prompt {index + 1}, attempt {attempt + 1}: {e}")
             if attempt < retries - 1:
                 time.sleep(2 ** attempt)
     completion_queue[index] = None
-    logging.warning(f"Prompt {index+1} failed after {retries} attempts.")
-    
+    logging.warning(f"Prompt {index + 1} failed after {retries} attempts.")
+
 def fetch_past_reports(cur):
     try:
         cur.execute("SELECT completion FROM telepathic_exchange ORDER BY timestamp DESC LIMIT 5")
         rows = cur.fetchall()
-        if not rows: return "No past."
-        return "\n".join(f"Report {i+1}:\n{r[0]}\n" for i,r in enumerate(rows))
+        if not rows:
+            return "No past."
+        return "\n".join(f"Report {i + 1}:\n{r[0]}\n" for i, r in enumerate(rows))
     except Exception as e:
         logging.error(f"Past fetch: {e}")
         return None
@@ -146,20 +147,23 @@ def fetch_user_colors(cur):
         rows = cur.fetchall()
         cols = [[int(x) for x in r[0].split(',')] for r in rows]
         logging.info(f"Colors: {cols}")
-        return cols if len(cols)==2 else None
+        return cols if len(cols) == 2 else None
     except Exception as e:
         logging.error(f"Color fetch: {e}")
         return None
 
 def create_tables(db):
-    cur=db.cursor()
+    cur = db.cursor()
     cur.execute("""CREATE TABLE IF NOT EXISTS thoughts(
         id INTEGER PRIMARY KEY,
-        prompt TEXT, completion TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        prompt TEXT,
+        completion TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS telepathic_exchange(
         id INTEGER PRIMARY KEY,
-        completion TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        completion TEXT,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS user_colors(
         id INTEGER PRIMARY KEY,
@@ -169,58 +173,73 @@ def create_tables(db):
 
 def seed_user_colors(cur):
     cur.execute("SELECT COUNT(*) FROM user_colors")
-    if cur.fetchone()[0]<2:
-        data=json.loads(COLORS_JSON)["colors"][:2]
+    if cur.fetchone()[0] < 2:
+        data = json.loads(COLORS_JSON)["colors"][:2]
         for name in data:
-            b=hashlib.sha256(name.encode()).digest()[:3]
-            s=",".join(str(x) for x in b)
-            cur.execute("INSERT INTO user_colors(color) VALUES(?)",(s,))
+            b = hashlib.sha256(name.encode()).digest()[:3]
+            s = ",".join(str(x) for x in b)
+            cur.execute("INSERT INTO user_colors(color) VALUES(?)", (s,))
         cur.connection.commit()
 
 def setup_quantum_circuit(ram, cols):
-    dev=qml.device("default.qubit",wires=7)
+    dev = qml.device("default.qubit", wires=7)
+
     @qml.qnode(dev)
-    def circuit(r,c1,c2):
-        p=r/100
-        c1h="#"+"".join(f"{v:02x}" for v in c1[:3])
-        c2h="#"+"".join(f"{v:02x}" for v in c2[:3])
-        n1=[int(c1h[i:i+2],16)/255 for i in (1,3,5)]
-        n2=[int(c2h[i:i+2],16)/255 for i in (1,3,5)]
-        qml.RY(np.pi*p,wires=0)
-        for w,v in enumerate(n1,1): qml.RY(np.pi*v,wires=w)
-        for w,v in enumerate(n2,4): qml.RY(np.pi*v,wires=w)
-        qml.CNOT(wires=[0,1]); qml.CNOT(wires=[1,2])
-        qml.CNOT(wires=[2,3]); qml.CNOT(wires=[3,4])
-        qml.CNOT(wires=[4,5]); qml.CNOT(wires=[5,6])
+    def circuit(r, c1, c2):
+        p = r / 100
+        c1h = "#" + "".join(f"{v:02x}" for v in c1[:3])
+        c2h = "#" + "".join(f"{v:02x}" for v in c2[:3])
+        n1 = [int(c1h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        n2 = [int(c2h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+        qml.RY(np.pi * p, wires=0)
+        for w, v in enumerate(n1, 1):
+            qml.RY(np.pi * v, wires=w)
+        for w, v in enumerate(n2, 4):
+            qml.RY(np.pi * v, wires=w)
+        qml.CNOT(wires=[0, 1])
+        qml.CNOT(wires=[1, 2])
+        qml.CNOT(wires=[2, 3])
+        qml.CNOT(wires=[3, 4])
+        qml.CNOT(wires=[4, 5])
+        qml.CNOT(wires=[5, 6])
         return qml.probs(wires=range(7))
-    if not cols: return None
-    res=circuit(ram, cols[0], cols[1])
+
+    if not cols:
+        return None
+    res = circuit(ram, cols[0], cols[1])
     logging.info(f"Circuit: {res}")
     return res
 
 def main():
-    key=os.environ.get("OPENAI_API_KEY")
+    key = os.environ.get("OPENAI_API_KEY")
     if not key:
-        logging.error("No API key"); return
+        logging.error("No API key")
+        return
 
-    time.sleep(random_runtime_delay())
+    # Comment this out if you don't want a random delay before execution.
+    # time.sleep(random_runtime_delay())
 
-    db=sqlite3.connect("thoughts.db")
+    db = sqlite3.connect("thoughts.db")
     create_tables(db)
-    cur=db.cursor()
+    cur = db.cursor()
     seed_user_colors(cur)
 
-    ram=get_ram_usage()
-    if ram is None: return
-    cols=fetch_user_colors(cur)
-    if not cols: return
+    ram = get_ram_usage()
+    if ram is None:
+        return
+    cols = fetch_user_colors(cur)
+    if not cols:
+        return
 
-    circ_res=setup_quantum_circuit(ram,cols)
-    if circ_res is None: return
+    circ_res = setup_quantum_circuit(ram, cols)
+    if circ_res is None:
+        return
 
-    past=fetch_past_reports(cur) or ""
+    past = fetch_past_reports(cur) or ""
+    if past:
+        print("\n=== Past Reports ===\n" + past)
 
-    prompts=[
+    prompts = [
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
         """
  **Good Luck and Ethereal Cleans Quantum Scan**
@@ -313,25 +332,32 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
         Quantum Circuit Result: {circuit_result}
         """
     ]
-    results=[None]*len(prompts)
-    threads=[]
-    for i,p in enumerate(prompts):
-        t=threading.Thread(target=run_openai_completion,args=(p,key,results,i))
-        threads.append(t); t.start()
-    for t in threads: t.join()
+    results = [None] * len(prompts)
+    threads = []
+    for i, p in enumerate(prompts):
+        t = threading.Thread(target=run_openai_completion, args=(p, key, results, i))
+        threads.append(t)
+        t.start()
+    for t in threads:
+        t.join()
 
-    for i,res in enumerate(results):
+    for i, res in enumerate(results):
         if not res:
-            logging.warning(f"R{i+1} fail")
+            logging.warning(f"R{i + 1} fail")
             continue
-        ep=encrypt_data(bleach.clean(prompts[i]))
-        ec=encrypt_data(res)
-        tbl="telepathic_exchange" if i==2 else "thoughts"
-        cur.execute(f"INSERT INTO {tbl}(prompt,completion) VALUES(?,?)",(ep,ec))
+        ep = encrypt_data(bleach.clean(prompts[i]))
+        ec = encrypt_data(res)
+        tbl = "telepathic_exchange" if i == 2 else "thoughts"
+        cur.execute(f"INSERT INTO {tbl}(prompt,completion) VALUES(?,?)", (ep, ec))
         db.commit()
+
+        # --- Display to terminal ---
+        print("\n" + "-" * 60)
+        print(f"Prompt {i + 1} completion (plain text):\n{res}")
+        print("-" * 60 + "\n")
 
     db.close()
     logging.info("Done")
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
