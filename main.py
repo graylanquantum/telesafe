@@ -9,8 +9,7 @@ import numpy as np
 import pennylane as qml
 import psutil
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.argon2 import Argon2
-from cryptography.hazmat.primitives.kdf.argon2 import Type as Argon2Type
+from argon2.low_level import hash_secret_raw, Type
 import base64
 import secrets
 import hashlib
