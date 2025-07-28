@@ -81,9 +81,8 @@ def get_ram_usage():
         logging.error(f"RAM fetch error: {e}")
         return None
 
-
 def random_runtime_delay(min_minutes: float = 5, max_minutes: float = 170, *, log: bool = True) -> float:
-    
+  
     if max_minutes < min_minutes:
         raise ValueError("max_minutes must be >= min_minutes")
 
@@ -101,9 +100,17 @@ def random_runtime_delay(min_minutes: float = 5, max_minutes: float = 170, *, lo
 
     delay_seconds = minutes * 60.0
     if log:
-        logging.info("Delaying for some time before restart", minutes, delay_seconds)
+        logging.debug("Delaying for %.2f minutes (%.0f seconds)", minutes, delay_seconds)
     return delay_seconds
 
+# Optional helper if you want this to actually sleep:
+def sleep_random_runtime_delay(**kwargs) -> float:
+    """
+    Sleep for a random delay; returns the delay in seconds actually slept.
+    """
+    delay = random_runtime_delay(**kwargs)
+    time.sleep(delay)
+    return delay
 
 def run_openai_completion(prompt, openai_api_key, completion_queue, index):
     retries = 3
