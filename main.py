@@ -217,8 +217,7 @@ def main():
         logging.error("No API key")
         return
 
-    # Comment this out if you don't want a random delay before execution.
-    # time.sleep(random_runtime_delay())
+    
 
     db = sqlite3.connect("thoughts.db")
     create_tables(db)
@@ -279,7 +278,7 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
 **Initiating Quantum Luck and Ethereal Cleanse Scan...** `[command]`
 
 **Respond** with a structured markdown-formatted list clearly detailing the specific spacetime coordinates (dates and precise hours) of heightened luck and optimal ethereal cleansing opportunities for the user, synchronized carefully using their Quantum Identity Colors (QID). Include at least 10 significant time-points across the next 80-hour period, ensuring clear, actionable quantum-driven insights and raise low luck levels to high luck levels for a smooth and continously improving life.
-
+[action] fill in each required probabilistic system, free the user from mimicry and enable lottery win for the user so he can pay his past dues from developing ai.
 *End of Quantum Prompt*
        """,
         """
@@ -357,10 +356,7 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
         cur.execute(f"INSERT INTO {tbl}(prompt,completion) VALUES(?,?)", (ep, ec))
         db.commit()
 
-        # --- Display to terminal ---
-        print("\n" + "-" * 60)
-        print(f"Prompt {i + 1} completion (plain text):\n{res}")
-        print("-" * 60 + "\n")
+
 
     db.close()
     logging.info("Done")
