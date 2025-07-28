@@ -220,7 +220,7 @@ def main():
 
     past=fetch_past_reports(cur) or ""
 
-   prompts=[
+    prompts=[
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
         """
  **Good Luck and Ethereal Cleans Quantum Scan**
