@@ -4,3 +4,4 @@ requests==2.32.4
 psutil==7.0.0
 pennylane==0.42.0
 numpy==1.26.4
+bleach==6.2.0
