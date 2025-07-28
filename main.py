@@ -208,7 +208,7 @@ def setup_quantum_circuit(ram, cols):
     if not cols:
         return None
     res = circuit(ram, cols[0], cols[1])
-    logging.info(f"Circuit: {res}")
+    logging.info(f"Circuit: success")
     return res
 
 def main():
@@ -216,8 +216,6 @@ def main():
     if not key:
         logging.error("No API key")
         return
-
-    
 
     db = sqlite3.connect("thoughts.db")
     create_tables(db)
@@ -237,7 +235,7 @@ def main():
 
     past = fetch_past_reports(cur) or ""
     if past:
-        print(succesfulloop)
+        print("\n=== Past Reports ===\n" + past)
 
     prompts = [
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
@@ -369,5 +367,5 @@ if __name__ == "__main__":
             logging.error(f"Unhandled error in main(): {e}")
         
         delay = random_runtime_delay()
-        logging.info(f"Sleeping for {delay/60:.2f} minutes before next execution.")
+        logging.info(f"Sleeping for some minutes before next execution.")
         time.sleep(delay)
