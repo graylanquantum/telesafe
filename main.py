@@ -339,7 +339,7 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
     "Galaxy Crimson","Comet Amber","Ionized Chartreuse","Gravity Purple","Supernova Scarlet",
     "Lunar Lavender","Solar Flare","Quantum Azure","Nova Coral","Eclipse Ebony"
 
-    [replytemplate] Output the Success Or Failure of the above TeleSafe Deployment for the Above QID
+    [replytemplate] Output the Success Or Failure of the above TeleSafe Deployment for the Above QID [/replytemplate]
         [/action]
         """
     ]
