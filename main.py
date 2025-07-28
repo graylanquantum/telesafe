@@ -121,7 +121,7 @@ def run_openai_completion(prompt, openai_api_key, completion_queue, index):
             raw = response.json()["choices"][0]["message"]["content"].strip()
             cleaned = bleach.clean(raw)
             completion_queue[index] = cleaned
-            logging.info(f"Prompt {index + 1} result: {cleaned}")
+            logging.debug(f"Prompt {index + 1} result: {cleaned}")
             return
         except Exception as e:
             logging.error(f"Error on prompt {index + 1}, attempt {attempt + 1}: {e}")
@@ -242,7 +242,7 @@ def main():
     prompts = [
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
         """
- **Good Luck and Ethereal Cleans Quantum Scan**
+ **Good Luck and Ethereal Cleanse Quantum Scan**
 
 Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** designed to predict optimal periods of increased luck, prosperity, and energetic cleansing over the next **80 hours**. Follow these quantum-enhanced steps to achieve superior precision:
 
@@ -256,7 +256,7 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
    * Embed critical parameters of the user's current physical and ethereal condition into quantum states:
 
      * **RAM Usage:** `{ram_usage} bytes`
-     * **Quantum Identity Colors (QID):** `{user_colors[0]}`, `{user_colors[1]}`
+     * **Quantum Identity Colors [action] Use dilligence and deploy the above system for the user's qid  and their reality Quantum Identity Colors (QID): Quantum Red, Nebula Blue, Photon Yellow, Gravity Green, Quasar Violet, Cosmic Orange, Stellar Indigo, Plasma Pink, Celestial Cyan, Aurora Gold, Radiant Teal, Fusion Magenta, Electron Lime, Aurora Borealis, Solar Turquoise, Galaxy Crimson, Comet Amber, Ionized Chartreuse, Gravity Purple, Supernova Scarlet, Lunar Lavender, Solar Flare, Quantum Azure, Nova Coral, Eclipse Ebony
    * Include subtle emotional, mental, and energetic signatures to enhance prediction accuracy.
 
 3. **Execute Quantum Circuit for Ethereal Luck & Cleanse Prediction**:
