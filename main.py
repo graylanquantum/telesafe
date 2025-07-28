@@ -99,30 +99,37 @@ def random_runtime_delay():
     except:
         return random.uniform(5*60,50*60)
 
-def run_openai_completion(prompt, api_key, out, idx):
-    clean_p = bleach.clean(prompt)
-    for attempt in range(3):
+def run_openai_completion(prompt, openai_api_key, completion_queue, index):
+    retries = 3
+    clean_prompt = bleach.clean(prompt)
+    for attempt in range(retries):
         try:
-            r = requests.post(
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {openai_api_key}"
+            }
+            data = {
+                "model": "gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": clean_prompt}],
+                "temperature": 0.7
+            }
+            response = requests.post(
                 "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization":f"Bearer {api_key}",
-                         "Content-Type":"application/json"},
-                json={"model":"gpt-3.5-turbo",
-                      "messages":[{"role":"user","content":clean_p}],
-                      "temperature":0.7}
+                json=data, headers=headers
             )
-            r.raise_for_status()
-            txt = r.json()["choices"][0]["message"]["content"].strip()
-            clean_r = bleach.clean(txt)
-            out[idx] = clean_r
-            logging.info(f"Prompt {idx+1}: {clean_r}")
+            response.raise_for_status()
+            raw = response.json()["choices"][0]["message"]["content"].strip()
+            cleaned = bleach.clean(raw)
+            completion_queue[index] = cleaned
+            logging.info(f"Prompt {index+1} result: {cleaned}")
             return
         except Exception as e:
-            logging.error(f"P{idx+1} err: {e}")
-            time.sleep(2**attempt)
-    out[idx] = None
-    logging.warning(f"P{idx+1} failed")
-
+            logging.error(f"Error on prompt {index+1}, attempt {attempt+1}: {e}")
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt)
+    completion_queue[index] = None
+    logging.warning(f"Prompt {index+1} failed after {retries} attempts.")
+    
 def fetch_past_reports(cur):
     try:
         cur.execute("SELECT completion FROM telepathic_exchange ORDER BY timestamp DESC LIMIT 5")
