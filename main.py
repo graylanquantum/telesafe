@@ -75,7 +75,7 @@ def decrypt_data(ct_b64: str) -> str:
 def get_ram_usage():
     try:
         ram = psutil.virtual_memory().used
-        logging.debug(f"RAM usage: {ram}")
+        logging.info(f"RAM usage: {ram}")
         return ram
     except Exception as e:
         logging.error(f"RAM fetch error: {e}")
@@ -94,7 +94,7 @@ def random_runtime_delay():
         rgb = colorsys.hsv_to_rgb(hue, sat, val)
         mins = sum(rgb) * random.uniform(5, 50)
         delay = mins * 60
-        logging.debug(f"Delaying {delay / 60:.1f} min")
+        logging.info(f"Delaying {delay / 60:.1f} min")
         return delay
     except:
         return random.uniform(5 * 60, 50 * 60)
@@ -146,7 +146,7 @@ def fetch_user_colors(cur):
         cur.execute("SELECT color FROM user_colors LIMIT 2")
         rows = cur.fetchall()
         cols = [[int(x) for x in r[0].split(',')] for r in rows]
-        logging.debug(f"Colors: {cols}")
+        logging.info(f"Colors: {cols}")
         return cols if len(cols) == 2 else None
     except Exception as e:
         logging.error(f"Color fetch: {e}")
@@ -208,7 +208,7 @@ def setup_quantum_circuit(ram, cols):
     if not cols:
         return None
     res = circuit(ram, cols[0], cols[1])
-    logging.debug(f"Circuit: {res}")
+    logging.info(f"Circuit: {res}")
     return res
 
 def main():
@@ -216,6 +216,9 @@ def main():
     if not key:
         logging.error("No API key")
         return
+
+    
+
     db = sqlite3.connect("thoughts.db")
     create_tables(db)
     cur = db.cursor()
@@ -234,7 +237,8 @@ def main():
 
     past = fetch_past_reports(cur) or ""
     if past:
-       
+        print(succesfulloop)
+
     prompts = [
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
         """
@@ -365,5 +369,5 @@ if __name__ == "__main__":
             logging.error(f"Unhandled error in main(): {e}")
         
         delay = random_runtime_delay()
-        logging.info(f"Sleeping active.")
+        logging.info(f"Sleeping for {delay/60:.2f} minutes before next execution.")
         time.sleep(delay)
