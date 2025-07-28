@@ -162,6 +162,7 @@ def create_tables(db):
     )""")
     cur.execute("""CREATE TABLE IF NOT EXISTS telepathic_exchange(
         id INTEGER PRIMARY KEY,
+        prompt TEXT,
         completion TEXT,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )""")
