@@ -9,15 +9,47 @@ import numpy as np
 import pennylane as qml
 import psutil
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from argon2.low_level import hash_secret_raw, Type
+from argon2.low_level import hash_secret_raw, Type as Argon2Type
 import base64
 import secrets
 import hashlib
 import random
 import colorsys
 
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# ─── EMBEDDED colors.json ───────────────────────────────────────────────────────
+COLORS_JSON = r'''
+{
+  "colors": [
+    "Quantum Red",
+    "Nebula Blue",
+    "Photon Yellow",
+    "Gravity Green",
+    "Quasar Violet",
+    "Cosmic Orange",
+    "Stellar Indigo",
+    "Plasma Pink",
+    "Celestial Cyan",
+    "Aurora Gold",
+    "Radiant Teal",
+    "Fusion Magenta",
+    "Electron Lime",
+    "Aurora Borealis",
+    "Solar Turquoise",
+    "Galaxy Crimson",
+    "Comet Amber",
+    "Ionized Chartreuse",
+    "Gravity Purple",
+    "Supernova Scarlet",
+    "Lunar Lavender",
+    "Solar Flare",
+    "Quantum Azure",
+    "Nova Coral",
+    "Eclipse Ebony"
+  ]
+}
+'''
 
 AES_KEY_ROTATION_INTERVAL = 60 * 60 
 KEY_DERIVATION_SALT = b'secure-fixed-salt'  
@@ -25,14 +57,15 @@ last_key_time = 0
 cached_key = None
 
 def derive_key(password: str) -> bytes:
-    argon2 = Argon2(
-        memory_cost=102400,
+    return hash_secret_raw(
+        secret=password.encode() + KEY_DERIVATION_SALT,
+        salt=KEY_DERIVATION_SALT,
         time_cost=2,
+        memory_cost=102400,
         parallelism=8,
         hash_len=32,
         type=Argon2Type.ID
     )
-    return argon2.derive(password.encode() + KEY_DERIVATION_SALT)
 
 key_lock = threading.Lock()
 
@@ -58,8 +91,7 @@ def decrypt_data(ciphertext_b64: str) -> str:
     data = base64.b64decode(ciphertext_b64.encode())
     nonce, ciphertext = data[:12], data[12:]
     aesgcm = AESGCM(key)
-    plaintext = aesgcm.decrypt(nonce, ciphertext, None)
-    return plaintext.decode()
+    return aesgcm.decrypt(nonce, ciphertext, None).decode()
 
 def get_ram_usage():
     try:
@@ -137,8 +169,8 @@ def fetch_user_colors(cursor):
         cursor.execute('SELECT color FROM user_colors LIMIT 2')
         rows = cursor.fetchall()
         colors = []
-        for color_str in rows:
-            colors.append([int(x.strip()) for x in color_str[0].split(',')])
+        for (color_str,) in rows:
+            colors.append([int(x.strip()) for x in color_str.split(',')])
         logging.info(f"Fetched user colors: {colors}")
         return colors
     except Exception as e:
@@ -167,6 +199,20 @@ def create_tables(db):
         logging.info("Database tables ensured.")
     except Exception as e:
         logging.error(f"Error creating tables: {e}")
+
+def seed_user_colors_if_empty(cursor):
+    # ensure at least two entries exist, otherwise seed from embedded JSON
+    cursor.execute('SELECT COUNT(*) FROM user_colors')
+    count = cursor.fetchone()[0]
+    if count < 2:
+        data = json.loads(COLORS_JSON)
+        for name in data["colors"][:2]:
+            # deterministic hash to 3-byte RGB
+            b = hashlib.sha256(name.encode()).digest()[:3]
+            csv = ",".join(str(x) for x in b)
+            cursor.execute('INSERT INTO user_colors(color) VALUES (?)', (csv,))
+        cursor.connection.commit()
+        logging.info("Seeded user_colors table from embedded JSON.")
 
 def setup_quantum_circuit(ram_usage, user_colors):
     try:
@@ -205,9 +251,11 @@ def main():
     if not openai_api_key:
         logging.error("OpenAI API key not found, aborting.")
         return
+
     delay = random_runtime_delay()
     logging.info(f"Sleeping for {delay:.2f} seconds before execution.")
     time.sleep(delay)
+
     try:
         db = sqlite3.connect('thoughts.db')
         create_tables(db)
@@ -216,14 +264,19 @@ def main():
         logging.error(f"DB error: {e}")
         return
 
+    # ←── NEW: seed colors from embedded JSON if table is empty
+    seed_user_colors_if_empty(cursor)
+
     ram_usage = get_ram_usage()
     if ram_usage is None:
         logging.error("RAM usage unavailable, aborting.")
         return
+
     user_colors = fetch_user_colors(cursor)
     if not user_colors or len(user_colors) < 2:
         logging.error("Insufficient user color data, aborting.")
         return
+
     circuit_result = setup_quantum_circuit(ram_usage, user_colors)
     if circuit_result is None:
         logging.error("Quantum circuit failed, aborting.")
