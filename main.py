@@ -81,23 +81,29 @@ def get_ram_usage():
         logging.error(f"RAM fetch error: {e}")
         return None
 
-def random_runtime_delay():
-    """Sleep 5–50 minutes."""
+
+def random_runtime_delay(min_minutes: float = 5, max_minutes: float = 170, *, log: bool = True) -> float:
+    
+    if max_minutes < min_minutes:
+        raise ValueError("max_minutes must be >= min_minutes")
+
     try:
-        ram = psutil.virtual_memory().used
-        cpu = psutil.cpu_percent(interval=1)
-        src = f"{ram}-{cpu}-{time.time()}-{secrets.token_hex(8)}"
-        h = hashlib.sha256(src.encode()).hexdigest()
-        hue = int(h[:2], 16) / 255
-        sat = int(h[2:4], 16) / 255
-        val = int(h[4:6], 16) / 255
-        rgb = colorsys.hsv_to_rgb(hue, sat, val)
-        mins = sum(rgb) * random.uniform(5, 50)
-        delay = mins * 60
-        logging.info(f"Delaying {delay / 60:.1f} min")
-        return delay
-    except:
-        return random.uniform(5 * 60, 50 * 60)
+        # Mix time + pid + OS entropy + CSPRNG bytes, then map to [0,1)
+        entropy = (
+            f"{time.time_ns()}|{os.getpid()}".encode("utf-8")
+            + secrets.token_bytes(32)
+        )
+        u = int.from_bytes(hashlib.sha256(entropy).digest()[:8], "big") / 2**64
+        minutes = min_minutes + u * (max_minutes - min_minutes)
+    except Exception:
+        # Conservative fallback that still guarantees bounds
+        minutes = secrets.SystemRandom().uniform(min_minutes, max_minutes)
+
+    delay_seconds = minutes * 60.0
+    if log:
+        logging.info("Delaying for some time before restart", minutes, delay_seconds)
+    return delay_seconds
+
 
 def run_openai_completion(prompt, openai_api_key, completion_queue, index):
     retries = 3
