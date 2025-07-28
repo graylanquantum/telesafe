@@ -8,6 +8,7 @@ import time
 import numpy as np
 import pennylane as qml
 import psutil
+import bleach
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from argon2.low_level import hash_secret_raw, Type as Argon2Type
 import base64
@@ -18,41 +19,21 @@ import colorsys
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# ─── EMBEDDED colors.json ───────────────────────────────────────────────────────
+
 COLORS_JSON = r'''
 {
   "colors": [
-    "Quantum Red",
-    "Nebula Blue",
-    "Photon Yellow",
-    "Gravity Green",
-    "Quasar Violet",
-    "Cosmic Orange",
-    "Stellar Indigo",
-    "Plasma Pink",
-    "Celestial Cyan",
-    "Aurora Gold",
-    "Radiant Teal",
-    "Fusion Magenta",
-    "Electron Lime",
-    "Aurora Borealis",
-    "Solar Turquoise",
-    "Galaxy Crimson",
-    "Comet Amber",
-    "Ionized Chartreuse",
-    "Gravity Purple",
-    "Supernova Scarlet",
-    "Lunar Lavender",
-    "Solar Flare",
-    "Quantum Azure",
-    "Nova Coral",
-    "Eclipse Ebony"
+    "Quantum Red","Nebula Blue","Photon Yellow","Gravity Green","Quasar Violet",
+    "Cosmic Orange","Stellar Indigo","Plasma Pink","Celestial Cyan","Aurora Gold",
+    "Radiant Teal","Fusion Magenta","Electron Lime","Aurora Borealis","Solar Turquoise",
+    "Galaxy Crimson","Comet Amber","Ionized Chartreuse","Gravity Purple","Supernova Scarlet",
+    "Lunar Lavender","Solar Flare","Quantum Azure","Nova Coral","Eclipse Ebony"
   ]
 }
 '''
 
-AES_KEY_ROTATION_INTERVAL = 60 * 60 
-KEY_DERIVATION_SALT = b'secure-fixed-salt'  
+AES_KEY_ROTATION_INTERVAL = 60 * 60
+KEY_DERIVATION_SALT = b'secure-fixed-salt'
 last_key_time = 0
 cached_key = None
 
@@ -74,219 +55,165 @@ def get_encryption_key() -> bytes:
     now = int(time.time())
     with key_lock:
         if cached_key is None or now - last_key_time > AES_KEY_ROTATION_INTERVAL:
-            password = os.environ.get("ENCRYPTION_PASSWORD", "defaultpass")
-            cached_key = derive_key(password)
+            pwd = os.environ.get("ENCRYPTION_PASSWORD", "defaultpass")
+            cached_key = derive_key(pwd)
             last_key_time = now
         return cached_key
 
-def encrypt_data(plaintext: str) -> str:
-    key = get_encryption_key()
-    aesgcm = AESGCM(key)
+def encrypt_data(plain: str) -> str:
+    aesgcm = AESGCM(get_encryption_key())
     nonce = secrets.token_bytes(12)
-    ciphertext = aesgcm.encrypt(nonce, plaintext.encode(), None)
-    return base64.b64encode(nonce + ciphertext).decode()
+    ct = aesgcm.encrypt(nonce, plain.encode(), None)
+    return base64.b64encode(nonce + ct).decode()
 
-def decrypt_data(ciphertext_b64: str) -> str:
-    key = get_encryption_key()
-    data = base64.b64decode(ciphertext_b64.encode())
-    nonce, ciphertext = data[:12], data[12:]
-    aesgcm = AESGCM(key)
-    return aesgcm.decrypt(nonce, ciphertext, None).decode()
+def decrypt_data(ct_b64: str) -> str:
+    data = base64.b64decode(ct_b64)
+    nonce, ct = data[:12], data[12:]
+    aesgcm = AESGCM(get_encryption_key())
+    return aesgcm.decrypt(nonce, ct, None).decode()
 
 def get_ram_usage():
     try:
         ram = psutil.virtual_memory().used
-        logging.info(f"RAM usage fetched: {ram} bytes.")
+        logging.info(f"RAM usage: {ram}")
         return ram
     except Exception as e:
-        logging.error(f"Error getting RAM usage: {e}")
+        logging.error(f"RAM fetch error: {e}")
         return None
 
 def random_runtime_delay():
+    """Sleep 5–50 minutes."""
     try:
         ram = psutil.virtual_memory().used
-        cpu_load = psutil.cpu_percent(interval=1)
-        entropy_source = f"{ram}-{cpu_load}-{time.time()}-{secrets.token_hex(8)}"
-        hash_digest = hashlib.sha256(entropy_source.encode()).hexdigest()
-        hue = int(hash_digest[:2], 16) / 255.0
-        saturation = int(hash_digest[2:4], 16) / 255.0
-        value = int(hash_digest[4:6], 16) / 255.0
-        rgb = colorsys.hsv_to_rgb(hue, saturation, value)
-        delay_seconds = sum(rgb) * random.uniform(10, 60)
-        logging.info(f"Randomized runtime delay: {delay_seconds:.2f} seconds.")
-        return delay_seconds
-    except Exception as e:
-        logging.error(f"Error computing random delay: {e}")
-        return random.uniform(15, 45)
+        cpu = psutil.cpu_percent(interval=1)
+        src = f"{ram}-{cpu}-{time.time()}-{secrets.token_hex(8)}"
+        h = hashlib.sha256(src.encode()).hexdigest()
+        hue = int(h[:2],16)/255
+        sat = int(h[2:4],16)/255
+        val = int(h[4:6],16)/255
+        rgb = colorsys.hsv_to_rgb(hue, sat, val)
+        mins = sum(rgb)*random.uniform(5,50)
+        delay = mins*60
+        logging.info(f"Delaying {delay/60:.1f} min")
+        return delay
+    except:
+        return random.uniform(5*60,50*60)
 
-def run_openai_completion(prompt, openai_api_key, completion_queue, index):
-    retries = 3
-    for attempt in range(retries):
+def run_openai_completion(prompt, api_key, out, idx):
+    clean_p = bleach.clean(prompt)
+    for attempt in range(3):
         try:
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {openai_api_key}"
-            }
-            data = {
-                "model": "gpt-3.5-turbo",
-                "messages": [{"role": "user", "content": prompt}],
-                "temperature": 0.7
-            }
-            response = requests.post("https://api.openai.com/v1/chat/completions", json=data, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            completion = result["choices"][0]["message"]["content"].strip()
-            completion_queue[index] = completion
-            logging.info(f"Prompt {index+1} completed successfully.")
+            r = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization":f"Bearer {api_key}",
+                         "Content-Type":"application/json"},
+                json={"model":"gpt-3.5-turbo",
+                      "messages":[{"role":"user","content":clean_p}],
+                      "temperature":0.7}
+            )
+            r.raise_for_status()
+            txt = r.json()["choices"][0]["message"]["content"].strip()
+            clean_r = bleach.clean(txt)
+            out[idx] = clean_r
+            logging.info(f"Prompt {idx+1}: {clean_r}")
             return
-        except requests.HTTPError as http_err:
-            logging.error(f"HTTP error for prompt {index+1}: {http_err}")
-            if attempt < retries - 1:
-                wait_time = 2 ** attempt
-                logging.info(f"Retrying prompt {index+1} in {wait_time} seconds...")
-                time.sleep(wait_time)
-            else:
-                logging.error(f"Reached maximum retries for prompt {index+1}.")
-                completion_queue[index] = None
         except Exception as e:
-            logging.error(f"Unexpected error for prompt {index+1}: {e}")
-            completion_queue[index] = None
-            return
+            logging.error(f"P{idx+1} err: {e}")
+            time.sleep(2**attempt)
+    out[idx] = None
+    logging.warning(f"P{idx+1} failed")
 
-def fetch_past_reports(cursor):
+def fetch_past_reports(cur):
     try:
-        cursor.execute('SELECT completion FROM telepathic_exchange ORDER BY timestamp DESC LIMIT 5')
-        rows = cursor.fetchall()
-        if rows:
-            return "\n".join(f"Past Safety Report {i+1}:\n{row[0]}\n" for i, row in enumerate(rows))
-        return "No past safety reports available.\n"
+        cur.execute("SELECT completion FROM telepathic_exchange ORDER BY timestamp DESC LIMIT 5")
+        rows = cur.fetchall()
+        if not rows: return "No past."
+        return "\n".join(f"Report {i+1}:\n{r[0]}\n" for i,r in enumerate(rows))
     except Exception as e:
-        logging.error(f"Error fetching past reports: {e}")
+        logging.error(f"Past fetch: {e}")
         return None
 
-def fetch_user_colors(cursor):
+def fetch_user_colors(cur):
     try:
-        cursor.execute('SELECT color FROM user_colors LIMIT 2')
-        rows = cursor.fetchall()
-        colors = []
-        for (color_str,) in rows:
-            colors.append([int(x.strip()) for x in color_str.split(',')])
-        logging.info(f"Fetched user colors: {colors}")
-        return colors
+        cur.execute("SELECT color FROM user_colors LIMIT 2")
+        rows = cur.fetchall()
+        cols = [[int(x) for x in r[0].split(',')] for r in rows]
+        logging.info(f"Colors: {cols}")
+        return cols if len(cols)==2 else None
     except Exception as e:
-        logging.error(f"Error fetching user colors: {e}")
+        logging.error(f"Color fetch: {e}")
         return None
-        
+
 def create_tables(db):
-    try:
-        cur = db.cursor()
-        cur.execute('''CREATE TABLE IF NOT EXISTS thoughts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            prompt TEXT NOT NULL,
-            completion TEXT NOT NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
-        cur.execute('''CREATE TABLE IF NOT EXISTS telepathic_exchange (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            completion TEXT NOT NULL,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
-        cur.execute('''CREATE TABLE IF NOT EXISTS user_colors (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            color TEXT NOT NULL
-        )''')
-        db.commit()
-        logging.info("Database tables ensured.")
-    except Exception as e:
-        logging.error(f"Error creating tables: {e}")
+    cur=db.cursor()
+    cur.execute("""CREATE TABLE IF NOT EXISTS thoughts(
+        id INTEGER PRIMARY KEY,
+        prompt TEXT, completion TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS telepathic_exchange(
+        id INTEGER PRIMARY KEY,
+        completion TEXT, timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )""")
+    cur.execute("""CREATE TABLE IF NOT EXISTS user_colors(
+        id INTEGER PRIMARY KEY,
+        color TEXT
+    )""")
+    db.commit()
 
-def seed_user_colors_if_empty(cursor):
-    # ensure at least two entries exist, otherwise seed from embedded JSON
-    cursor.execute('SELECT COUNT(*) FROM user_colors')
-    count = cursor.fetchone()[0]
-    if count < 2:
-        data = json.loads(COLORS_JSON)
-        for name in data["colors"][:2]:
-            # deterministic hash to 3-byte RGB
-            b = hashlib.sha256(name.encode()).digest()[:3]
-            csv = ",".join(str(x) for x in b)
-            cursor.execute('INSERT INTO user_colors(color) VALUES (?)', (csv,))
-        cursor.connection.commit()
-        logging.info("Seeded user_colors table from embedded JSON.")
+def seed_user_colors(cur):
+    cur.execute("SELECT COUNT(*) FROM user_colors")
+    if cur.fetchone()[0]<2:
+        data=json.loads(COLORS_JSON)["colors"][:2]
+        for name in data:
+            b=hashlib.sha256(name.encode()).digest()[:3]
+            s=",".join(str(x) for x in b)
+            cur.execute("INSERT INTO user_colors(color) VALUES(?)",(s,))
+        cur.connection.commit()
 
-def setup_quantum_circuit(ram_usage, user_colors):
-    try:
-        dev = qml.device("default.qubit", wires=7)
-        @qml.qnode(dev)
-        def circuit(ram_usage, data1, data2):
-            ram_param = ram_usage / 100
-            color_code1 = "#" + "".join(format(int(val), '02x') for val in data1[:3])
-            color_code2 = "#" + "".join(format(int(val), '02x') for val in data2[:3])
-            norm_color1 = [int(color_code1[i:i+2], 16)/255 for i in (1,3,5)]
-            norm_color2 = [int(color_code2[i:i+2], 16)/255 for i in (1,3,5)]
-            qml.RY(np.pi * ram_param, wires=0)
-            for w, val in enumerate(norm_color1, start=1):
-                qml.RY(np.pi * val, wires=w)
-            for w, val in enumerate(norm_color2, start=4):
-                qml.RY(np.pi * val, wires=w)
-            qml.CNOT(wires=[0,1])
-            qml.CNOT(wires=[1,2])
-            qml.CNOT(wires=[2,3])
-            qml.CNOT(wires=[3,4])
-            qml.CNOT(wires=[4,5])
-            qml.CNOT(wires=[5,6])
-            return qml.probs(wires=range(7))
-        if len(user_colors) < 2:
-            logging.error("Insufficient user colors.")
-            return None
-        circuit_result = circuit(ram_usage, user_colors[0], user_colors[1])
-        logging.info(f"Quantum circuit executed. Result: {circuit_result}")
-        return circuit_result
-    except Exception as e:
-        logging.error(f"Quantum circuit setup error: {e}")
-        return None
+def setup_quantum_circuit(ram, cols):
+    dev=qml.device("default.qubit",wires=7)
+    @qml.qnode(dev)
+    def circuit(r,c1,c2):
+        p=r/100
+        c1h="#"+"".join(f"{v:02x}" for v in c1[:3])
+        c2h="#"+"".join(f"{v:02x}" for v in c2[:3])
+        n1=[int(c1h[i:i+2],16)/255 for i in (1,3,5)]
+        n2=[int(c2h[i:i+2],16)/255 for i in (1,3,5)]
+        qml.RY(np.pi*p,wires=0)
+        for w,v in enumerate(n1,1): qml.RY(np.pi*v,wires=w)
+        for w,v in enumerate(n2,4): qml.RY(np.pi*v,wires=w)
+        qml.CNOT(wires=[0,1]); qml.CNOT(wires=[1,2])
+        qml.CNOT(wires=[2,3]); qml.CNOT(wires=[3,4])
+        qml.CNOT(wires=[4,5]); qml.CNOT(wires=[5,6])
+        return qml.probs(wires=range(7))
+    if not cols: return None
+    res=circuit(ram, cols[0], cols[1])
+    logging.info(f"Circuit: {res}")
+    return res
 
 def main():
-    openai_api_key = os.environ.get('OPENAI_API_KEY')
-    if not openai_api_key:
-        logging.error("OpenAI API key not found, aborting.")
-        return
+    key=os.environ.get("OPENAI_API_KEY")
+    if not key:
+        logging.error("No API key"); return
 
-    delay = random_runtime_delay()
-    logging.info(f"Sleeping for {delay:.2f} seconds before execution.")
-    time.sleep(delay)
+    time.sleep(random_runtime_delay())
 
-    try:
-        db = sqlite3.connect('thoughts.db')
-        create_tables(db)
-        cursor = db.cursor()
-    except sqlite3.Error as e:
-        logging.error(f"DB error: {e}")
-        return
+    db=sqlite3.connect("thoughts.db")
+    create_tables(db)
+    cur=db.cursor()
+    seed_user_colors(cur)
 
-    # ←── NEW: seed colors from embedded JSON if table is empty
-    seed_user_colors_if_empty(cursor)
+    ram=get_ram_usage()
+    if ram is None: return
+    cols=fetch_user_colors(cur)
+    if not cols: return
 
-    ram_usage = get_ram_usage()
-    if ram_usage is None:
-        logging.error("RAM usage unavailable, aborting.")
-        return
+    circ_res=setup_quantum_circuit(ram,cols)
+    if circ_res is None: return
 
-    user_colors = fetch_user_colors(cursor)
-    if not user_colors or len(user_colors) < 2:
-        logging.error("Insufficient user color data, aborting.")
-        return
+    past=fetch_past_reports(cur) or ""
 
-    circuit_result = setup_quantum_circuit(ram_usage, user_colors)
-    if circuit_result is None:
-        logging.error("Quantum circuit failed, aborting.")
-        return
-
-    past_reports = fetch_past_reports(cursor)
-    if past_reports is None:
-        past_reports = "No past safety reports available.\n"
-
-    prompts = [
+   prompts=[
         "Check my phone and this system with nanobots for hacks yes or no reply, hypothetically only reply yes or no one word reply for question , is this system etherally and in reality secure then double check",
         """
  **Good Luck and Ethereal Cleans Quantum Scan**
@@ -379,28 +306,25 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
         Quantum Circuit Result: {circuit_result}
         """
     ]
-
-    completion_queue = [None] * len(prompts)
-    threads = []
-    for i, prompt in enumerate(prompts):
-        t = threading.Thread(target=run_openai_completion, args=(prompt, openai_api_key, completion_queue, i))
+    results=[None]*len(prompts)
+    threads=[]
+    for i,p in enumerate(prompts):
+        t=threading.Thread(target=run_openai_completion,args=(p,key,results,i))
         threads.append(t); t.start()
     for t in threads: t.join()
 
-    for idx, completion in enumerate(completion_queue):
-        if completion is None:
-            logging.warning(f"Completion {idx+1} failed.")
+    for i,res in enumerate(results):
+        if not res:
+            logging.warning(f"R{i+1} fail")
             continue
-        encrypted_prompt = encrypt_data(prompts[idx])
-        encrypted_completion = encrypt_data(completion)
-        table = 'telepathic_exchange' if idx == 2 else 'thoughts'
-        cursor.execute(f"INSERT INTO {table} (prompt, completion) VALUES (?, ?)",
-                       (encrypted_prompt, encrypted_completion))
+        ep=encrypt_data(bleach.clean(prompts[i]))
+        ec=encrypt_data(res)
+        tbl="telepathic_exchange" if i==2 else "thoughts"
+        cur.execute(f"INSERT INTO {tbl}(prompt,completion) VALUES(?,?)",(ep,ec))
         db.commit()
-        logging.info(f"Stored completion {idx+1} in {table}.")
 
     db.close()
-    logging.info("Main execution completed successfully.")
+    logging.info("Done")
 
-if __name__ == '__main__':
+if __name__=="__main__":
     main()
