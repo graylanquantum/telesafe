@@ -15,16 +15,7 @@ import secrets
 import hashlib
 import random
 import colorsys
-from concurrent.futures import ThreadPoolExecutor
 
-
-with ThreadPoolExecutor(max_workers=5) as pool:
-    futures = [
-        pool.submit(run_openai_completion, p, openai_api_key, completion_queue, i)
-        for i, p in enumerate(prompts)
-    ]
-    for f in futures:
-        f.result()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
