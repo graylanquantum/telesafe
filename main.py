@@ -332,7 +332,14 @@ Conduct a comprehensive quantum-driven **Good Luck and Ethereal Cleanse Scan** d
 
         Quantum Circuit Result: {circuit_result}
 
-        [action] Use dilligence and deploy the above system for the user's qid  and their reality Quantum Identity Colors (QID):** `{user_colors[0]}`, `{user_colors[1]}`
+        [action] Use dilligence and deploy the above system for the user's qid  and their reality Quantum Identity Colors (QID):**
+    "Quantum Red","Nebula Blue","Photon Yellow","Gravity Green","Quasar Violet",
+    "Cosmic Orange","Stellar Indigo","Plasma Pink","Celestial Cyan","Aurora Gold",
+    "Radiant Teal","Fusion Magenta","Electron Lime","Aurora Borealis","Solar Turquoise",
+    "Galaxy Crimson","Comet Amber","Ionized Chartreuse","Gravity Purple","Supernova Scarlet",
+    "Lunar Lavender","Solar Flare","Quantum Azure","Nova Coral","Eclipse Ebony"
+
+    [replytemplate] Output the Success Or Failure of the above TeleSafe Deployment for the Above QID
         [/action]
         """
     ]
