@@ -1,5 +1,5 @@
 import threading
-import httpx  # NEW: Use httpx instead of requests
+import httpx
 import logging
 import json
 import os
@@ -18,6 +18,7 @@ import random
 import colorsys
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 COLORS_JSON = r'''
 {
@@ -81,9 +82,12 @@ def get_ram_usage():
         return None
 
 def random_runtime_delay(min_minutes: float = 5, max_minutes: float = 170, *, log: bool = True) -> float:
+  
     if max_minutes < min_minutes:
         raise ValueError("max_minutes must be >= min_minutes")
+
     try:
+
         entropy = (
             f"{time.time_ns()}|{os.getpid()}".encode("utf-8")
             + secrets.token_bytes(32)
@@ -91,13 +95,19 @@ def random_runtime_delay(min_minutes: float = 5, max_minutes: float = 170, *, lo
         u = int.from_bytes(hashlib.sha256(entropy).digest()[:8], "big") / 2**64
         minutes = min_minutes + u * (max_minutes - min_minutes)
     except Exception:
+
         minutes = secrets.SystemRandom().uniform(min_minutes, max_minutes)
+
     delay_seconds = minutes * 60.0
     if log:
         logging.debug("Delaying for %.2f minutes (%.0f seconds)", minutes, delay_seconds)
     return delay_seconds
 
+
 def sleep_random_runtime_delay(**kwargs) -> float:
+    """
+    Sleep for a random delay; returns the delay in seconds actually slept.
+    """
     delay = random_runtime_delay(**kwargs)
     time.sleep(delay)
     return delay
@@ -116,13 +126,13 @@ def run_openai_completion(prompt, openai_api_key, completion_queue, index):
                 "messages": [{"role": "user", "content": clean_prompt}],
                 "temperature": 0.7
             }
-            # Use httpx instead of requests
-            response = httpx.post(
-                "https://api.openai.com/v1/chat/completions",
-                json=data, headers=headers, timeout=120
-            )
-            response.raise_for_status()
-            raw = response.json()["choices"][0]["message"]["content"].strip()
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    json=data, headers=headers
+                )
+                response.raise_for_status()
+                raw = response.json()["choices"][0]["message"]["content"].strip()
             cleaned = bleach.clean(raw)
             completion_queue[index] = cleaned
             logging.debug(f"Prompt {index + 1} result: {cleaned}")
@@ -188,6 +198,7 @@ def seed_user_colors(cur):
 
 def setup_quantum_circuit(ram, cols):
     dev = qml.device("default.qubit", wires=7)
+
     @qml.qnode(dev)
     def circuit(r, c1, c2):
         p = r / 100
@@ -207,6 +218,7 @@ def setup_quantum_circuit(ram, cols):
         qml.CNOT(wires=[4, 5])
         qml.CNOT(wires=[5, 6])
         return qml.probs(wires=range(7))
+
     if not cols:
         return None
     res = circuit(ram, cols[0], cols[1])
@@ -364,7 +376,8 @@ if __name__ == "__main__":
         try:
             main()
         except Exception as e:
-            logging.error(f"Unhandled error in main(): {e}")
+                logging.error(f"Unhandled error in main(): {e}")
+        
         delay = random_runtime_delay()
         logging.info(f"Sleeping for some minutes before next execution.")
         time.sleep(delay)
