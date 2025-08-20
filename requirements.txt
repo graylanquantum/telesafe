@@ -1,8 +1,8 @@
 cryptography==45.0.5
 argon2-cffi==25.1.0
-requests==2.32.4
+httpx==0.28.1
 psutil==7.0.0
-pennylane==0.42.0
-numpy==1.26.4
+pennylane==0.42.3
+numpy==2.3.2
 bleach==6.2.0
-autoray>=0.6.7
+
